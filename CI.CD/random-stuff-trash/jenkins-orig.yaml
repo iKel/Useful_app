@@ -1,0 +1,272 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::340924313311:role/eksctl-EKS-cluster-addon-iamserviceaccount-j-Role1-6WY9H8AL6B4T
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"ServiceAccount","metadata":{"annotations":{"eks.amazonaws.com/role-arn":"arn:aws:iam::340924313311:role/eksctl-EKS-cluster-addon-iamserviceaccount-j-Role1-6WY9H8AL6B4T"},"name":"jenkins","namespace":"jenkins"}}
+  labels:
+    app.kubernetes.io/managed-by: eksctl
+  name: jenkins
+  namespace: NAMESPACE
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins-cluster-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: NAMESPACE
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: jenkins
+  namespace: NAMESPACE
+  labels:
+    name: jenkins
+spec:
+  serviceName: jenkins
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      name: jenkins
+  template:
+    metadata:
+      name: jenkins
+      labels:
+        name: jenkins
+    spec:
+      serviceAccountName: jenkins
+      securityContext:
+        fsGroup: 1000
+      volumes:
+      - name: secrets-store-inline  #jenkins-secret
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "jenkins-secret"
+     # - name: jenkins-pvc
+     #    persistentVolumeClaim:
+     #       claimName: jenkins-pvc
+     # - name: jenkins-config
+     #   configMap: 
+     #     name: jenkins-config
+      containers:
+        - name: jenkins
+          image: 340924313311.dkr.ecr.us-east-1.amazonaws.com/jenkins-master-23k:IMAGEVERSION
+        # image: jenkins/jenkins:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http-port
+              containerPort: 8080
+            - name: jnlp-port
+              containerPort: 50000
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            - name: secrets-store-inline   #jenkins-secret
+              mountPath: /mnt/secrets-store
+              readOnly: true
+          # - name: jenkins-pvc
+          #   mountPath: /var/jenkins_home 
+          # - name: jenkins-config
+          #   mountPath: /var/lib/jenkins/
+          env:
+            - name: JAVA_OPTS
+              value: -Djenkins.install.runSetupWizard=false
+            - name: JENKINS_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret             
+                  key: admin-username
+            - name: JENKINS_ADMIN_PW
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret             
+                  key: admin-password
+            - name: JENKINS_BUILD_USER
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret          
+                  key: build-username
+            - name: JENKINS_BUILD_PW
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret             
+                  key: build-password
+            - name: JENKINS_READ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret          
+                  key: read-username
+            - name: JENKINS_READ_PW
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret             
+                  key: read-password
+           
+  volumeClaimTemplates:
+  - metadata:
+      name: jenkins-home
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: jenkins-sc
+      resources:
+        requests:
+          storage: 6Gi
+
+---
+
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: jenkins-sc
+parameters:
+  type: gp3
+provisioner: kubernetes.io/aws-ebs
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+
+---
+
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: jenkins-secret
+  namespace: NAMESPACE
+spec:
+  provider: aws
+  parameters: 
+    objects: |
+      - objectName: "jenkins-secret"      
+        objectType: "secretsmanager"
+        jmesPath:
+          - path: '"admin-username"'
+            objectAlias: "admin-username"
+          - path: '"admin-password"'
+            objectAlias: "admin-password"
+          - path: '"read-username"'
+            objectAlias: "read-username"
+          - path: '"read-password"'
+            objectAlias: "read-password"
+          - path: '"build-username"'
+            objectAlias: "build-username"
+          - path: '"build-password"'
+            objectAlias: "build-password"
+
+  secretObjects:
+  - secretName: jenkins-secret
+    type: Opaque
+    data: 
+    - objectName: admin-username    #JENKINS_ADMIN_USER
+      key: admin-username
+    - objectName: admin-password    #JENKINS_ADMIN_PW
+      key: admin-password
+    - objectName: read-username     #JENKINS_READ_USER
+      key: read-username
+    - objectName: read-password     #JENKINS_READ_PW
+      key: read-password
+    - objectName: build-username    #JENKINS_BUILD_USER
+      key: build-username
+    - objectName: build-password    #JENKINS_BUILD_PW
+      key: build-password
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-svc
+  namespace: NAMESPACE
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+    - port: 50000
+      targetPort: 50000
+      name: agent
+  selector:
+    name: jenkins
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jenkins-ingress
+  namespace: NAMESPACE
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  rules:
+  - host: HOSTNAME
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: jenkins-svc
+            port:
+              number: 8080
+  ingressClassName: nginx
+
+---
+
+#apiVersion: v1
+#kind: PersistentVolume
+#metadata:
+#  name: jenkins-pv
+#spec:
+#  capacity:
+#    storage: 5Gi
+#  volumeMode: Filesystem
+#  accessModes:
+#    - ReadWriteMany
+#  persistentVolumeReclaimPolicy: Retain
+#  storageClassName: jenkins-sc
+#  csi:
+#    driver: secrets-store.csi.k8s.io
+#    volumeAttributes:
+#          secretProviderClass: "jenkins-secret"
+#    volumeHandle: 
+---
+
+#apiVersion: v1
+#kind: PersistentVolumeClaim
+#metadata:
+#  name: jenkins-pvc
+#  namespace: NAMESPACE
+#spec:
+#  accessModes:
+#    - ReadWriteMany
+#  storageClassName: jenkins-sc
+#  resources:
+#    requests:
+#      storage: 5Gi
+
+---
+
+#apiVersion: v1
+#kind: ConfigMap
+#metadata:
+#  name: jenkins-config
+#  namespace: NAMESPACE
+#data:
+#  jcasc.yaml: |
+#    {{ .Files.Get "casc.yaml" | indent 4 }}

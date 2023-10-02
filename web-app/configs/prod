@@ -1,0 +1,4 @@
+v = 1.0.3
+replicas = 3
+namespace = prod
+hostname = prod.khlyuzder.com

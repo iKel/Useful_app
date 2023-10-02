@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::340924313311:role/eksctl-EKS-cluster-addon-iamserviceaccount-j-Role1-6WY9H8AL6B4T
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"ServiceAccount","metadata":{"annotations":{"eks.amazonaws.com/role-arn":"arn:aws:iam:::role/jenkins-secrets-manager"},"name":"jenkins","namespace":"jenkins"}}
+  creationTimestamp: "2023-07-18T01:58:55Z"
+  labels:
+    app.kubernetes.io/managed-by: eksctl
+  name: jenkins
+  namespace: jenkins
+  resourceVersion: "4759223"
+  uid: d5c2add7-edcf-4492-8ab7-f37179283136

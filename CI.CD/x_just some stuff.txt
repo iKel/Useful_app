@@ -1,0 +1,11 @@
+helm install csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver \
+  --namespace kube-system \
+  --set syncSecret.enabled=true \
+  --set enableSecretRotation=true
+
+  --------------------
+Role (sa for Jenk)
+  eksctl create iamserviceaccount --name jenkins-secrets-sa --namespace jenkins --cluster 312-eks --role-name jenkins-role \
+    --attach-policy-arn arn:aws:iam::574738412401:policy/Jenkins-secrets --approve
+checking
+    aws iam get-role --role-name jenkins-role --query Role.AssumeRolePolicyDocument

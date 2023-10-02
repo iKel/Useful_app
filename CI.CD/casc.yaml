@@ -1,0 +1,157 @@
+jenkins:
+  securityRealm:
+    local:
+      allowsSignup: true
+      enableCaptcha: false
+      users:
+      - id: "${JENKINS_ADMIN_USER}"
+        name: "${JENKINS_ADMIN_USER}"
+        password: "${JENKINS_ADMIN_PW}"
+      - id: "${JENKINS_READ_USER}"
+        name: "${JENKINS_READ_USER}"
+        password: "${JENKINS_READ_PW}"
+      - id: "${JENKINS_BUILD_USER}"
+        name: "${JENKINS_BUILD_USER}"
+        password: "${JENKINS_BUILD_PW}"
+  agentProtocols:
+  - "JNLP4-connect"
+  - "Ping"
+  authorizationStrategy:
+    globalMatrix:
+      permissions:
+      - "USER:Overall/Administer:${JENKINS_ADMIN_USER}"
+      - "USER:Overall/Read:${JENKINS_READ_USER}"
+      - "USER:Overall/Read:${JENKINS_BUILD_USER}"
+      - "USER:Job/Build:${JENKINS_BUILD_USER}"
+      - "USER:Job/Cancel:${JENKINS_BUILD_USER}"
+      - "USER:Job/Configure:${JENKINS_BUILD_USER}"
+      - "USER:Job/Create:${JENKINS_BUILD_USER}"
+      - "USER:Job/Delete:${JENKINS_BUILD_USER}"
+      - "USER:Job/Discover:${JENKINS_BUILD_USER}"
+      - "USER:Job/Move:${JENKINS_BUILD_USER}"
+      - "USER:Job/Read:${JENKINS_BUILD_USER}"
+      - "USER:Job/Workspace:${JENKINS_BUILD_USER}"
+      - "USER:Run/Delete:${JENKINS_BUILD_USER}"
+      - "USER:Run/Update:${JENKINS_BUILD_USER}"
+  clouds:
+  - kubernetes:
+      jenkinsUrl: "http://jenkins-svc:8080"
+      name: "kubernetes"
+      serverUrl: "https://kubernetes.default:443"
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: true
+  disableRememberMe: false
+  labelAtoms:
+  - name: "built-in"
+  markupFormatter: "plainText"
+  mode: NORMAL
+  myViewsTabBar: "standard"
+  numExecutors: 2
+  primaryView:
+    all:
+      name: "all"
+  projectNamingStrategy: "standard"
+  quietPeriod: 5
+  remotingSecurity:
+    enabled: true
+  scmCheckoutRetryCount: 0
+  slaveAgentPort: 50000
+  updateCenter:
+    sites:
+    - id: "default"
+      url: "https://updates.jenkins.io/update-center.json"
+  views:
+  - all:
+      name: "all"
+  viewsTabBar: "standard"
+
+credentials:
+  system:
+    domainCredentials:
+    - credentials:
+      - usernamePassword:
+          description: "GitHub Personal Access Token creds"
+          id: "github-creds-pat"
+          password: "${GITHUB_PASS}"
+          scope: GLOBAL
+          username: "${GITHUB_USER}"
+      - usernamePassword:
+          id: "5a4c65e8-bddf-41dc-826a-e0aa3f9d3a84"
+          password: "{AQAAABAAAAAQBT5lAQQHcvfqA/DnqyJ64ynwXbz/2KZ2A88nLBA9DmQ=}"
+          scope: GLOBAL
+          username: "test2"
+
+globalCredentialsConfiguration:
+  configuration:
+    providerFilter: "none"
+    typeFilter: "none"
+security:
+  apiToken:
+    creationOfLegacyTokenEnabled: false
+    tokenGenerationOnCreationEnabled: false
+    usageStatisticsEnabled: true
+  gitHooks:
+    allowedOnAgents: false
+    allowedOnController: false
+  gitHostKeyVerificationConfiguration:
+    sshHostKeyVerificationStrategy: "knownHostsFileVerificationStrategy"
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: true
+  queueItemAuthenticator:
+    authenticators:
+    - global:
+        strategy: "triggeringUsersAuthorizationStrategy"
+  sSHD:
+    port: -1
+unclassified:
+  buildDiscarders:
+    configuredBuildDiscarders:
+    - "jobBuildDiscarder"
+  buildStepOperation:
+    enabled: false
+  fingerprints:
+    fingerprintCleanupDisabled: false
+    storage: "file"
+  gitHubConfiguration:
+    apiRateLimitChecker: ThrottleForNormalize
+  gitHubPluginConfig:
+    hookUrl: "http://jenkins-dev.khlyuzder.com/github-webhook/"
+  globalTimeOutConfiguration:
+    operations:
+    - "abortOperation"
+    overwriteable: false
+  junitTestResultStorage:
+    storage: "file"
+  location:
+    adminAddress: "iokmole@gmail.com"
+    url: "http://jenkins-dev.khlyuzder.com/"
+  mailer:
+    charset: "UTF-8"
+    useSsl: false
+    useTls: false
+  pollSCM:
+    pollingThreadCount: 10
+  scmGit:
+    addGitTagAction: false
+    allowSecondFetch: false
+    createAccountBasedOnEmail: false
+    disableGitToolChooser: false
+    hideCredentials: false
+    showEntireCommitSummaryInChanges: false
+    useExistingAccountWithSameEmail: false
+  subversionSCM:
+    workspaceFormat: 8
+  timestamper:
+    allPipelines: false
+    elapsedTimeFormat: "'<b>'HH:mm:ss.S'</b> '"
+    systemTimeFormat: "'<b>'HH:mm:ss'</b> '"
+tool:
+  git:
+    installations:
+    - home: "git"
+      name: "Default"
+  mavenGlobalConfig:
+    globalSettingsProvider: "standard"
+    settingsProvider: "standard"
+

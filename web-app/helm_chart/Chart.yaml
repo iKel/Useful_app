@@ -1,0 +1,7 @@
+apiVersion: v2
+appVersion: "1.0.1"
+name: useful_app
+version: "1.0.1"
+description: One-Page App app for your convenience 
+type: application
+home: prod.khlyuzder.com

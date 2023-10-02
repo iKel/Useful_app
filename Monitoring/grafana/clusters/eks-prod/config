@@ -1,0 +1,3 @@
+storagesize = 5
+retentionPeriod = 7d
+hostname = grafana-prod.khlyuzder.com

@@ -1,0 +1,397 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::574738412401:role/jenkins-role
+    #eks.amazonaws.com/role-arn: arn:aws:iam::340924313311:role/eksctl-EKS-cluster-addon-iamserviceaccount-j-Role1-6WY9H8AL6B4T
+    #arn:aws:iam::574738412401:role/jenkins-role
+    #kubectl.kubernetes.io/last-applied-configuration: |
+    # {"apiVersion":"v1","kind":"ServiceAccount","metadata":{"annotations":{"eks.amazonaws.com/role-arn":"arn:aws:iam::340924313311:role/eksctl-EKS-cluster-addon-iamserviceaccount-j-Role1-6WY9H8AL6B4T"},"name":"jenkins","namespace":"jenkins"}}
+  labels:
+    app.kubernetes.io/managed-by: eksctl
+  name: jenkins
+  namespace: NAMESPACE
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins-cluster-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: NAMESPACE
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: jenkins
+  namespace: NAMESPACE
+  labels:
+    name: jenkins
+spec:
+  serviceName: jenkins
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      name: jenkins
+  template:
+    metadata:
+      name: jenkins
+      labels:
+        name: jenkins
+    spec:
+      serviceAccountName: jenkins
+      securityContext:
+        fsGroup: 1000
+      volumes:
+      - name: secrets-store-inline  #jenkins-secret
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "jenkins-secret"
+      - name: jenkins-config
+        configMap: 
+          name: jenkins-config
+      containers:
+        - name: jenkins
+          image: 340924313311.dkr.ecr.us-east-1.amazonaws.com/jenkins-master-23k:IMAGEVERSION
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http-port
+              containerPort: 8080
+            - name: jnlp-port
+              containerPort: 50000
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            - name: secrets-store-inline   #jenkins-secret
+              mountPath: /mnt/secrets-store
+              readOnly: true
+            - name: jenkins-config
+              mountPath: /var/lib/jenkins/
+          env:
+            - name: JAVA_OPTS
+              value: -Djenkins.install.runSetupWizard=false
+            - name: JENKINS_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret             
+                  key: admin-username
+            - name: JENKINS_ADMIN_PW
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret             
+                  key: admin-password
+            - name: JENKINS_BUILD_USER
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret          
+                  key: build-username
+            - name: JENKINS_BUILD_PW
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret             
+                  key: build-password
+            - name: JENKINS_READ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret          
+                  key: read-username
+            - name: JENKINS_READ_PW
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-secret             
+                  key: read-password
+
+
+            - name: GITHUB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-github-secret           
+                  key: github-user 
+            - name: GITHUB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-github-secret            
+                  key: github-pass
+            - name: GITHUB_ORG
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-github-secret             
+                  key: github-org
+            - name: GITHUB_REPO
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-github-secret            
+                  key: github-repo 
+            - name: GITHUB_BRANCH
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-github-secret            
+                  key: github-branches       
+
+  volumeClaimTemplates:
+  - metadata:
+      name: jenkins-home
+      labels:
+        name: jenkins
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: jenkins-sc
+      resources:
+        requests:
+          storage: 5Gi #6Gi
+
+---
+
+allowVolumeExpansion: true
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: jenkins-sc
+parameters:
+  type: gp3
+provisioner: kubernetes.io/aws-ebs
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+
+---
+
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: jenkins-secret
+  namespace: NAMESPACE
+spec:
+  provider: aws
+  parameters: 
+    objects: |
+      - objectName: "jenkins-secret"      
+        objectType: "secretsmanager"
+        jmesPath:
+          - path: '"admin-username"'
+            objectAlias: "admin-username"
+          - path: '"admin-password"'
+            objectAlias: "admin-password"
+          - path: '"read-username"'
+            objectAlias: "read-username"
+          - path: '"read-password"'
+            objectAlias: "read-password"
+          - path: '"build-username"'
+            objectAlias: "build-username"
+          - path: '"build-password"'
+            objectAlias: "build-password"
+
+  secretObjects:
+  - secretName: jenkins-secret
+    type: Opaque
+    data: 
+    - objectName: admin-username    #JENKINS_ADMIN_USER
+      key: admin-username
+    - objectName: admin-password    #JENKINS_ADMIN_PW
+      key: admin-password
+    - objectName: read-username     #JENKINS_READ_USER
+      key: read-username
+    - objectName: read-password     #JENKINS_READ_PW
+      key: read-password
+    - objectName: build-username    #JENKINS_BUILD_USER
+      key: build-username
+    - objectName: build-password    #JENKINS_BUILD_PW
+      key: build-password
+
+# parameters: objects - info about secrets from Secrets Manager (or other specified source)
+# objectName - name of the secret in Secrets Manager
+# jmesPath - to mount each key-value pair from one secret separately (otherwise mounts entire file)
+# path - has to match key in Secrets Manager secret's key
+# object Alias - can be any name, has to match objectName in secretObjects below
+
+# secretObjects - CSI will create local K8s Secret
+# secretName - name of local K8s secret - will be referred in pods to provide ENV values
+# objectName - has to match objectAlias from above
+# key - key name in a regular K8s secret. Will mount this in pods ENVs - has to match 
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-svc
+  namespace: NAMESPACE
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+    - port: 50000
+      targetPort: 50000
+      name: agent
+  selector:
+    name: jenkins
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jenkins-ingress
+  namespace: NAMESPACE
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  rules:
+  - host: HOSTNAME
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: jenkins-svc
+            port:
+              number: 8080
+  ingressClassName: nginx
+
+---
+
+# apiVersion: v1
+# kind: PersistentVolume
+# metadata:
+#   name: jenkins-pv
+# spec:
+#   capacity:
+#     storage: 5Gi
+#   volumeMode: Filesystem
+#   accessModes:
+#     - ReadWriteMany
+#   persistentVolumeReclaimPolicy: Retain
+#   storageClassName: jenkins-sc
+#   csi:
+#     driver: secrets-store.csi.k8s.io
+#     volumeAttributes:
+#           secretProviderClass: "jenkins-secret"
+#     volumeHandle: kubernetes.io/aws-ebs
+---
+
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: jenkins-pvc
+#   namespace: NAMESPACE
+# spec:
+#   accessModes:
+#     - ReadWriteMany
+#   storageClassName: jenkins-sc
+#   resources:
+#     requests:
+#       storage: 5Gi
+
+---
+
+#apiVersion: v1
+#kind: ConfigMap
+#metadata:
+#  name: jenkins-config
+#  namespace: NAMESPACE
+#data:
+#  jcasc.yaml: |
+#    {{ .Files.Get "casc.yaml" | indent 4 }}
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-config
+  namespace: NAMESPACE
+data:
+  casc.yaml: "jenkins:\r\n  securityRealm:\r\n    local:\r\n      allowsSignup: true\r\n
+    \     enableCaptcha: false\r\n      users:\r\n      - id: \"${JENKINS_ADMIN_USER}\"\r\n
+    \       name: \"${JENKINS_ADMIN_USER}\"\r\n        password: \"${JENKINS_ADMIN_PW}\"\r\n
+    \     - id: \"${JENKINS_READ_USER}\"\r\n        name: \"${JENKINS_READ_USER}\"\r\n
+    \       password: \"${JENKINS_READ_PW}\"\r\n      - id: \"${JENKINS_BUILD_USER}\"\r\n
+    \       name: \"${JENKINS_BUILD_USER}\"\r\n        password: \"${JENKINS_BUILD_PW}\"\r\n
+    \ agentProtocols:\r\n  - \"JNLP4-connect\"\r\n  - \"Ping\"\r\n  authorizationStrategy:\r\n
+    \   globalMatrix:\r\n      permissions:\r\n      - \"USER:Overall/Administer:${JENKINS_ADMIN_USER}\"\r\n
+    \     - \"USER:Overall/Read:${JENKINS_READ_USER}\"\r\n      - \"USER:Overall/Read:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Job/Build:${JENKINS_BUILD_USER}\"\r\n      - \"USER:Job/Cancel:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Job/Configure:${JENKINS_BUILD_USER}\"\r\n      - \"USER:Job/Create:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Job/Delete:${JENKINS_BUILD_USER}\"\r\n      - \"USER:Job/Discover:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Job/Move:${JENKINS_BUILD_USER}\"\r\n      - \"USER:Job/Read:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Job/Workspace:${JENKINS_BUILD_USER}\"\r\n      - \"USER:Run/Delete:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Run/Update:${JENKINS_BUILD_USER}\"\r\n  clouds:\r\n  - kubernetes:\r\n
+    \     jenkinsUrl: \"http://jenkins-svc:8080\"\r\n      name: \"kubernetes\"\r\n
+    \     serverUrl: \"https://kubernetes.default:443\"\r\n  crumbIssuer:\r\n    standard:\r\n
+    \     excludeClientIPFromCrumb: true\r\n  disableRememberMe: false\r\n  labelAtoms:\r\n
+    \ - name: \"built-in\"\r\n  markupFormatter: \"plainText\"\r\n  mode: NORMAL\r\n
+    \ myViewsTabBar: \"standard\"\r\n  numExecutors: 2\r\n  primaryView:\r\n    all:\r\n
+    \     name: \"all\"\r\n  projectNamingStrategy: \"standard\"\r\n  quietPeriod:
+    5\r\n  remotingSecurity:\r\n    enabled: true\r\n  scmCheckoutRetryCount: 0\r\n
+    \ slaveAgentPort: 50000\r\n  updateCenter:\r\n    sites:\r\n    - id: \"default\"\r\n
+    \     url: \"https://updates.jenkins.io/update-center.json\"\r\n  views:\r\n  -
+    all:\r\n      name: \"all\"\r\n  viewsTabBar: \"standard\"\r\n\r\ncredentials:\r\n
+    \ system:\r\n    domainCredentials:\r\n    - credentials:\r\n      - usernamePassword:\r\n
+    \         description: \"GitHub Personal Access Token creds\"\r\n          id:
+    \"github-creds-pat\"\r\n          password: \"${GITHUB_PASS}\"\r\n          scope:
+    GLOBAL\r\n          username: \"${GITHUB_USER}\"\r\n      - usernamePassword:\r\n
+    \         id: \"5a4c65e8-bddf-41dc-826a-e0aa3f9d3a84\"\r\n          password:
+    \"{AQAAABAAAAAQBT5lAQQHcvfqA/DnqyJ64ynwXbz/2KZ2A88nLBA9DmQ=}\"\r\n          scope:
+    GLOBAL\r\n          username: \"test2\"\r\n\r\nglobalCredentialsConfiguration:\r\n
+    \ configuration:\r\n    providerFilter: \"none\"\r\n    typeFilter: \"none\"\r\nsecurity:\r\n
+    \ apiToken:\r\n    creationOfLegacyTokenEnabled: false\r\n    tokenGenerationOnCreationEnabled:
+    false\r\n    usageStatisticsEnabled: true\r\n  gitHooks:\r\n    allowedOnAgents:
+    false\r\n    allowedOnController: false\r\n  gitHostKeyVerificationConfiguration:\r\n
+    \   sshHostKeyVerificationStrategy: \"knownHostsFileVerificationStrategy\"\r\n
+    \ globalJobDslSecurityConfiguration:\r\n    useScriptSecurity: true\r\n  queueItemAuthenticator:\r\n
+    \   authenticators:\r\n    - global:\r\n        strategy: \"triggeringUsersAuthorizationStrategy\"\r\n
+    \ sSHD:\r\n    port: -1\r\nunclassified:\r\n  buildDiscarders:\r\n    configuredBuildDiscarders:\r\n
+    \   - \"jobBuildDiscarder\"\r\n  buildStepOperation:\r\n    enabled: false\r\n
+    \ fingerprints:\r\n    fingerprintCleanupDisabled: false\r\n    storage: \"file\"\r\n
+    \ gitHubConfiguration:\r\n    apiRateLimitChecker: ThrottleForNormalize\r\n  gitHubPluginConfig:\r\n
+    \   hookUrl: \"http://jenkins-dev.312redhat.com/github-webhook/\"\r\n  globalTimeOutConfiguration:\r\n
+    \   operations:\r\n    - \"abortOperation\"\r\n    overwriteable: false\r\n  junitTestResultStorage:\r\n
+    \   storage: \"file\"\r\n  location:\r\n    adminAddress: \"adelia.aa0708@gmail.com\"\r\n
+    \   url: \"http://jenkins-dev.312redhat.com/\"\r\n  mailer:\r\n    charset: \"UTF-8\"\r\n
+    \   useSsl: false\r\n    useTls: false\r\n  pollSCM:\r\n    pollingThreadCount:
+    10\r\n  scmGit:\r\n    addGitTagAction: false\r\n    allowSecondFetch: false\r\n
+    \   createAccountBasedOnEmail: false\r\n    disableGitToolChooser: false\r\n    hideCredentials:
+    false\r\n    showEntireCommitSummaryInChanges: false\r\n    useExistingAccountWithSameEmail:
+    false\r\n  subversionSCM:\r\n    workspaceFormat: 8\r\n  timestamper:\r\n    allPipelines:
+    false\r\n    elapsedTimeFormat: \"'<b>'HH:mm:ss.S'</b> '\"\r\n    systemTimeFormat:
+    \"'<b>'HH:mm:ss'</b> '\"\r\ntool:\r\n  git:\r\n    installations:\r\n    - home:
+    \"git\"\r\n      name: \"Default\"\r\n  mavenGlobalConfig:\r\n    globalSettingsProvider:
+    \"standard\"\r\n    settingsProvider: \"standard\"\r\n\r\n"
+
+# It's enough to configure JCasC in Dockerfile to mount it. 
+# However, if you make changes in JCasC file, build/push a new image and redeploy pods, 
+# Jenkins still doesn't pick up changes (content of mounted casc.yaml file is still an old version)
+# So if you have a StatefulSet, you'll have to bring your changes in configMap to mount a new version of JCasC
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jenkins-github-secret
+  namespace: NAMESPACE
+type: Opaque
+data:
+  github-branches: d2VhdGhlci1maW5hbA==   # weather-final
+  github-org: MzEyLWJj                    # 312-bc
+  github-pass: Z2hwX0w2VXJGNVE2SkRXcnJtaWk5RzhLSGJQRzR2Q0xBTTJVWDV4Ng== # personal access token
+  github-repo: d2VhdGhlci0yM2stcmVkaGF0   # weather-23k-redhat
+  github-user: Tmlrb2xhaURldk9wcw==       #NikolaiDevOps
+
+# weather-final - git branch
+# NikolaiDevOps - github username
+# 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 - personal access token
+# weather-23k-redhat - github repo

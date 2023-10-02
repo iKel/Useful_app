@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-config
+  namespace: NAMESPACE
+data:
+  casc.yaml: "jenkins:\r\n  securityRealm:\r\n    local:\r\n      allowsSignup: true\r\n
+    \     enableCaptcha: false\r\n      users:\r\n      - id: \"${JENKINS_ADMIN_USER}\"\r\n
+    \       name: \"${JENKINS_ADMIN_USER}\"\r\n        password: \"${JENKINS_ADMIN_PW}\"\r\n
+    \     - id: \"${JENKINS_READ_USER}\"\r\n        name: \"${JENKINS_READ_USER}\"\r\n
+    \       password: \"${JENKINS_READ_PW}\"\r\n      - id: \"${JENKINS_BUILD_USER}\"\r\n
+    \       name: \"${JENKINS_BUILD_USER}\"\r\n        password: \"${JENKINS_BUILD_PW}\"\r\n
+    \ agentProtocols:\r\n  - \"JNLP4-connect\"\r\n  - \"Ping\"\r\n  authorizationStrategy:\r\n
+    \   globalMatrix:\r\n      permissions:\r\n      - \"USER:Overall/Administer:${JENKINS_ADMIN_USER}\"\r\n
+    \     - \"USER:Overall/Read:${JENKINS_READ_USER}\"\r\n      - \"USER:Overall/Read:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Job/Build:${JENKINS_BUILD_USER}\"\r\n      - \"USER:Job/Cancel:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Job/Configure:${JENKINS_BUILD_USER}\"\r\n      - \"USER:Job/Create:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Job/Delete:${JENKINS_BUILD_USER}\"\r\n      - \"USER:Job/Discover:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Job/Move:${JENKINS_BUILD_USER}\"\r\n      - \"USER:Job/Read:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Job/Workspace:${JENKINS_BUILD_USER}\"\r\n      - \"USER:Run/Delete:${JENKINS_BUILD_USER}\"\r\n
+    \     - \"USER:Run/Update:${JENKINS_BUILD_USER}\"\r\n  clouds:\r\n  - kubernetes:\r\n
+    \     jenkinsUrl: \"http://jenkins-svc:8080\"\r\n      name: \"kubernetes\"\r\n
+    \     serverUrl: \"https://kubernetes.default:443\"\r\n  crumbIssuer:\r\n    standard:\r\n
+    \     excludeClientIPFromCrumb: true\r\n  disableRememberMe: false\r\n  labelAtoms:\r\n
+    \ - name: \"built-in\"\r\n  markupFormatter: \"plainText\"\r\n  mode: NORMAL\r\n
+    \ myViewsTabBar: \"standard\"\r\n  numExecutors: 2\r\n  primaryView:\r\n    all:\r\n
+    \     name: \"all\"\r\n  projectNamingStrategy: \"standard\"\r\n  quietPeriod:
+    5\r\n  remotingSecurity:\r\n    enabled: true\r\n  scmCheckoutRetryCount: 0\r\n
+    \ slaveAgentPort: 50000\r\n  updateCenter:\r\n    sites:\r\n    - id: \"default\"\r\n
+    \     url: \"https://updates.jenkins.io/update-center.json\"\r\n  views:\r\n  -
+    all:\r\n      name: \"all\"\r\n  viewsTabBar: \"standard\"\r\n\r\ncredentials:\r\n
+    \ system:\r\n    domainCredentials:\r\n    - credentials:\r\n      - usernamePassword:\r\n
+    \         description: \"GitHub Personal Access Token creds\"\r\n          id:
+    \"github-creds-pat\"\r\n          password: \"${GITHUB_PASS}\"\r\n          scope:
+    GLOBAL\r\n          username: \"${GITHUB_USER}\"\r\n      - usernamePassword:\r\n
+    \         id: \"5a4c65e8-bddf-41dc-826a-e0aa3f9d3a84\"\r\n          password:
+    \"{AQAAABAAAAAQBT5lAQQHcvfqA/DnqyJ64ynwXbz/2KZ2A88nLBA9DmQ=}\"\r\n          scope:
+    GLOBAL\r\n          username: \"test2\"\r\n\r\nglobalCredentialsConfiguration:\r\n
+    \ configuration:\r\n    providerFilter: \"none\"\r\n    typeFilter: \"none\"\r\nsecurity:\r\n
+    \ apiToken:\r\n    creationOfLegacyTokenEnabled: false\r\n    tokenGenerationOnCreationEnabled:
+    false\r\n    usageStatisticsEnabled: true\r\n  gitHooks:\r\n    allowedOnAgents:
+    false\r\n    allowedOnController: false\r\n  gitHostKeyVerificationConfiguration:\r\n
+    \   sshHostKeyVerificationStrategy: \"knownHostsFileVerificationStrategy\"\r\n
+    \ globalJobDslSecurityConfiguration:\r\n    useScriptSecurity: true\r\n  queueItemAuthenticator:\r\n
+    \   authenticators:\r\n    - global:\r\n        strategy: \"triggeringUsersAuthorizationStrategy\"\r\n
+    \ sSHD:\r\n    port: -1\r\nunclassified:\r\n  buildDiscarders:\r\n    configuredBuildDiscarders:\r\n
+    \   - \"jobBuildDiscarder\"\r\n  buildStepOperation:\r\n    enabled: false\r\n
+    \ fingerprints:\r\n    fingerprintCleanupDisabled: false\r\n    storage: \"file\"\r\n
+    \ gitHubConfiguration:\r\n    apiRateLimitChecker: ThrottleForNormalize\r\n  gitHubPluginConfig:\r\n
+    \   hookUrl: \"http://jenkins-dev.312redhat.com/github-webhook/\"\r\n  globalTimeOutConfiguration:\r\n
+    \   operations:\r\n    - \"abortOperation\"\r\n    overwriteable: false\r\n  junitTestResultStorage:\r\n
+    \   storage: \"file\"\r\n  location:\r\n    adminAddress: \"adelia.aa0708@gmail.com\"\r\n
+    \   url: \"http://jenkins-dev.312redhat.com/\"\r\n  mailer:\r\n    charset: \"UTF-8\"\r\n
+    \   useSsl: false\r\n    useTls: false\r\n  pollSCM:\r\n    pollingThreadCount:
+    10\r\n  scmGit:\r\n    addGitTagAction: false\r\n    allowSecondFetch: false\r\n
+    \   createAccountBasedOnEmail: false\r\n    disableGitToolChooser: false\r\n    hideCredentials:
+    false\r\n    showEntireCommitSummaryInChanges: false\r\n    useExistingAccountWithSameEmail:
+    false\r\n  subversionSCM:\r\n    workspaceFormat: 8\r\n  timestamper:\r\n    allPipelines:
+    false\r\n    elapsedTimeFormat: \"'<b>'HH:mm:ss.S'</b> '\"\r\n    systemTimeFormat:
+    \"'<b>'HH:mm:ss'</b> '\"\r\ntool:\r\n  git:\r\n    installations:\r\n    - home:
+    \"git\"\r\n      name: \"Default\"\r\n  mavenGlobalConfig:\r\n    globalSettingsProvider:
+    \"standard\"\r\n    settingsProvider: \"standard\"\r\n\r\n"

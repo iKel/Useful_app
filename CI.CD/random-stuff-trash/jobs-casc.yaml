@@ -1,0 +1,49 @@
+jobs:
+    - script: >
+        multibranchPipelineJob('weather-23k-redhat') {
+            branchSources {
+                git {
+                    id('weather-23k-redhat') 
+                    remote('git@github.com:312-bc/weather-23k-redhat.git')
+                    credentialsId('ssh_credentials')
+                    includes('feature.* production.* master.*')
+                }
+            }
+            orphanedItemStrategy {
+                discardOldItems {
+                    numToKeep(20)
+                }
+            }
+        }
+    - script: >
+        multibranchPipelineJob('exchange-23k-redhat') {
+            branchSources {
+                git {
+                    id('exchange-23k-redhat') 
+                    remote('git@github.com:312-bc/exchange-23k-redhat.git')
+                    credentialsId('ssh_credentials')
+                    includes('feature.* production.* master.*')
+                }
+            }
+            orphanedItemStrategy {
+                discardOldItems {
+                    numToKeep(20)
+                }
+            }
+        }
+    - script: >
+        multibranchPipelineJob('versus-23k-redhat') {
+            branchSources {
+                git {
+                    id('versus-23k-redhat') 
+                    remote('git@github.com:312-bc/versus-23k-redhat.git')
+                    credentialsId('ssh_credentials')
+                    includes('feature-* production* master*')
+                }
+            }
+            orphanedItemStrategy {
+                discardOldItems {
+                    numToKeep(20)
+                }
+            }
+        }

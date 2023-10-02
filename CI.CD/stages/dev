@@ -1,0 +1,3 @@
+version = 1.0
+namespace = jenkins-dev
+hostname = jenkins-dev.khlyuzder.com

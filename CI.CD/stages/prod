@@ -1,0 +1,3 @@
+version = 1.0
+namespace = jenkins-prod
+hostname = jenkins-prod.khlyuzder.com

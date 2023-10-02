@@ -1,0 +1,19 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Statement1",
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:CreateSecret",
+                "kms:Decrypt"
+            ],
+            "Resource": [
+                "arn:aws:secretsmanager:us-east-1:340924313311:secret:*",
+                "arn:aws:kms:us-east-1:340924313311:key/*"
+            ]
+        }
+    ]
+}

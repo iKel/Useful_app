@@ -1,0 +1,4 @@
+v = 1.0.1
+replicas = 1
+namespace = dev
+hostname = dev.khlyuzder.com
